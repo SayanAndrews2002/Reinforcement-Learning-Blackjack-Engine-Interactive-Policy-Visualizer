@@ -1,0 +1,200 @@
+import gymnasium as gym
+import numpy as np
+import json
+from collections import defaultdict
+
+class QLearningAgent:
+    def __init__(self, lr=0.1, gamma=0.99):
+        self.lr = lr
+        self.gamma = gamma
+        self.q_table = defaultdict(lambda: np.zeros(2))
+    
+    def get_action(self, state, epsilon=0):
+        if np.random.random() < epsilon:
+            return np.random.randint(0, 2)
+        return np.argmax(self.q_table[state])
+    
+    def update(self, state, action, reward, next_state, done):
+        current_q = self.q_table[state][action]
+        max_next_q = 0 if done else np.max(self.q_table[next_state])
+        target = reward + self.gamma * max_next_q
+        self.q_table[state][action] = current_q + self.lr * (target - current_q)
+    
+    def get_q_table_dict(self):
+        return {str(k): v.tolist() for k, v in self.q_table.items()}
+
+class SARSAAgent:
+    def __init__(self, lr=0.1, gamma=0.99):
+        self.lr = lr
+        self.gamma = gamma
+        self.q_table = defaultdict(lambda: np.zeros(2))
+    
+    def get_action(self, state, epsilon=0):
+        if np.random.random() < epsilon:
+            return np.random.randint(0, 2)
+        return np.argmax(self.q_table[state])
+    
+    def update(self, state, action, reward, next_state, next_action, done):
+        current_q = self.q_table[state][action]
+        next_q = 0 if done else self.q_table[next_state][next_action]
+        target = reward + self.gamma * next_q
+        self.q_table[state][action] = current_q + self.lr * (target - current_q)
+    
+    def get_q_table_dict(self):
+        return {str(k): v.tolist() for k, v in self.q_table.items()}
+
+class MonteCarloAgent:
+    def __init__(self, lr=0.1, gamma=0.99):
+        self.gamma = gamma
+        self.q_table = defaultdict(lambda: np.zeros(2))
+        self.returns = defaultdict(list)
+    
+    def get_action(self, state, epsilon=0):
+        if np.random.random() < epsilon:
+            return np.random.randint(0, 2)
+        return np.argmax(self.q_table[state])
+    
+    def update_episode(self, episode):
+        G = 0
+        visited = set()
+        
+        for i in range(len(episode) - 1, -1, -1):
+            state, action, reward = episode[i]
+            G = reward + self.gamma * G
+            
+            state_action = (state, action)
+            if state_action not in visited:
+                self.returns[state_action].append(G)
+                self.q_table[state][action] = np.mean(self.returns[state_action])
+                visited.add(state_action)
+    
+    def get_q_table_dict(self):
+        return {str(k): v.tolist() for k, v in self.q_table.items()}
+
+def train_agent(agent_type, episodes=50000):
+    print(f"\n{'='*60}")
+    print(f"Training {agent_type.upper()} Agent")
+    print(f"{'='*60}")
+    
+    env = gym.make('Blackjack-v1')
+    
+    if agent_type == 'qlearning':
+        agent = QLearningAgent(lr=0.1, gamma=0.99)
+    elif agent_type == 'sarsa':
+        agent = SARSAAgent(lr=0.1, gamma=0.99)
+    else:
+        agent = MonteCarloAgent(lr=0.1, gamma=0.99)
+    
+    wins, losses, draws = 0, 0, 0
+    total_reward = 0
+    
+    for episode in range(episodes):
+        epsilon = max(0.01, 1.0 - (episode / episodes))
+        state, _ = env.reset()
+        done = False
+        episode_history = []
+        episode_reward = 0
+        
+        if agent_type == 'sarsa':
+            action = agent.get_action(state, epsilon)
+            
+            while not done:
+                next_state, reward, terminated, truncated, _ = env.step(action)
+                done = terminated or truncated
+                episode_reward += reward
+                
+                next_action = agent.get_action(next_state, epsilon)
+                agent.update(state, action, reward, next_state, next_action, done)
+                
+                state = next_state
+                action = next_action
+        
+        elif agent_type == 'montecarlo':
+            while not done:
+                action = agent.get_action(state, epsilon)
+                next_state, reward, terminated, truncated, _ = env.step(action)
+                done = terminated or truncated
+                episode_reward += reward
+                
+                episode_history.append((state, action, reward))
+                state = next_state
+            
+            agent.update_episode(episode_history)
+        
+        else:  # Q-Learning
+            while not done:
+                action = agent.get_action(state, epsilon)
+                next_state, reward, terminated, truncated, _ = env.step(action)
+                done = terminated or truncated
+                episode_reward += reward
+                
+                agent.update(state, action, reward, next_state, done)
+                state = next_state
+        
+        total_reward += episode_reward
+        if episode_reward > 0:
+            wins += 1
+        elif episode_reward < 0:
+            losses += 1
+        else:
+            draws += 1
+        
+        if (episode + 1) % 10000 == 0:
+            win_rate = (wins / (episode + 1)) * 100
+            avg_reward = total_reward / (episode + 1)
+            print(f"Episode {episode + 1}/{episodes} | Win Rate: {win_rate:.2f}% | Avg Reward: {avg_reward:.3f}")
+    
+    env.close()
+    
+    win_rate = (wins / episodes) * 100
+    avg_reward = total_reward / episodes
+    
+    print(f"\n{'='*60}")
+    print(f"FINAL RESULTS - {agent_type.upper()}")
+    print(f"{'='*60}")
+    print(f"Total Episodes: {episodes}")
+    print(f"Wins: {wins} ({(wins/episodes)*100:.2f}%)")
+    print(f"Losses: {losses} ({(losses/episodes)*100:.2f}%)")
+    print(f"Draws: {draws} ({(draws/episodes)*100:.2f}%)")
+    print(f"Win Rate: {win_rate:.2f}%")
+    print(f"Average Reward: {avg_reward:.3f}")
+    print(f"{'='*60}\n")
+    
+    q_table_dict = agent.get_q_table_dict()
+    
+    with open(f'trained_{agent_type}.json', 'w') as f:
+        json.dump(q_table_dict, f)
+    
+    print(f"✅ Saved trained model to: trained_{agent_type}.json")
+    
+    return agent, {
+        'episodes': episodes,
+        'wins': wins,
+        'losses': losses,
+        'draws': draws,
+        'win_rate': win_rate,
+        'avg_reward': avg_reward
+    }
+
+if __name__ == "__main__":
+    print("\n" + "="*60)
+    print("CS 271P: Gymnasium Blackjack RL Training")
+    print("="*60)
+    
+    results = {}
+    
+    for agent_type in ['qlearning', 'sarsa', 'montecarlo']:
+        agent, stats = train_agent(agent_type, episodes=50000)
+        results[agent_type] = stats
+    
+    print("\n" + "="*60)
+    print("COMPARISON SUMMARY")
+    print("="*60)
+    print(f"{'Algorithm':<15} {'Win Rate':<12} {'Avg Reward':<12}")
+    print("-" * 60)
+    
+    for algo, stats in results.items():
+        print(f"{algo.upper():<15} {stats['win_rate']:.2f}%{'':<7} {stats['avg_reward']:.3f}")
+    
+    print("\n✅ All models trained and saved!")
+    print("Run 'python app.py' to start the web interface")

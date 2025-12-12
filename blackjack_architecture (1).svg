@@ -1,0 +1,76 @@
+<svg viewBox="0 0 1400 400" xmlns="http://www.w3.org/2000/svg">
+  
+  <!-- Title -->
+  <text x="700" y="40" text-anchor="middle" font-size="20" font-weight="bold">Blackjack RL System Architecture</text>
+  
+  <!-- Training Phase -->
+  <rect x="50" y="80" width="180" height="80" fill="white" stroke="black" stroke-width="2"/>
+  <text x="140" y="110" text-anchor="middle" font-size="13" font-weight="bold">RL Training</text>
+  <line x1="70" y1="120" x2="210" y2="120" stroke="black" stroke-width="1"/>
+  <text x="140" y="140" text-anchor="middle" font-size="10">Q-Learning / SARSA / MC</text>
+  <text x="140" y="155" text-anchor="middle" font-size="10">50,000 Episodes</text>
+  
+  <!-- Arrow -->
+  <line x1="230" y1="120" x2="280" y2="120" stroke="black" stroke-width="2" marker-end="url(#arrow)"/>
+  
+  <!-- Q-Table Storage -->
+  <rect x="280" y="80" width="180" height="80" fill="white" stroke="black" stroke-width="2"/>
+  <text x="370" y="110" text-anchor="middle" font-size="13" font-weight="bold">Q-Table Storage</text>
+  <line x1="300" y1="120" x2="440" y2="120" stroke="black" stroke-width="1"/>
+  <text x="370" y="140" text-anchor="middle" font-size="10">Learned Policies</text>
+  <text x="370" y="155" text-anchor="middle" font-size="10">State-Action Values</text>
+  
+  <!-- Arrow down -->
+  <line x1="370" y1="160" x2="370" y2="200" stroke="black" stroke-width="2" marker-end="url(#arrow)"/>
+  
+  <!-- Browser -->
+  <rect x="280" y="200" width="180" height="80" fill="white" stroke="black" stroke-width="2"/>
+  <text x="370" y="230" text-anchor="middle" font-size="13" font-weight="bold">Browser</text>
+  <line x1="300" y1="240" x2="440" y2="240" stroke="black" stroke-width="1"/>
+  <text x="370" y="260" text-anchor="middle" font-size="10">HTML/CSS/JavaScript</text>
+  <text x="370" y="275" text-anchor="middle" font-size="10">User Interface</text>
+  
+  <!-- Arrow -->
+  <line x1="460" y1="240" x2="510" y2="240" stroke="black" stroke-width="2" marker-end="url(#arrow)"/>
+  
+  <!-- Flask Server -->
+  <rect x="510" y="200" width="180" height="80" fill="white" stroke="black" stroke-width="2"/>
+  <text x="600" y="230" text-anchor="middle" font-size="13" font-weight="bold">Flask Server</text>
+  <line x1="530" y1="240" x2="670" y2="240" stroke="black" stroke-width="1"/>
+  <text x="600" y="260" text-anchor="middle" font-size="10">Load Q-Tables</text>
+  <text x="600" y="275" text-anchor="middle" font-size="10">API Handler</text>
+  
+  <!-- Arrow -->
+  <line x1="690" y1="240" x2="740" y2="240" stroke="black" stroke-width="2" marker-end="url(#arrow)"/>
+  
+  <!-- Agent -->
+  <rect x="740" y="200" width="180" height="80" fill="white" stroke="black" stroke-width="2"/>
+  <text x="830" y="230" text-anchor="middle" font-size="13" font-weight="bold">Agent</text>
+  <line x1="760" y1="240" x2="900" y2="240" stroke="black" stroke-width="1"/>
+  <text x="830" y="260" text-anchor="middle" font-size="10">Q-Value Lookup</text>
+  <text x="830" y="275" text-anchor="middle" font-size="10">Action Selection</text>
+  
+  <!-- Arrow -->
+  <line x1="920" y1="240" x2="970" y2="240" stroke="black" stroke-width="2" marker-end="url(#arrow)"/>
+  
+  <!-- Gymnasium -->
+  <rect x="970" y="200" width="180" height="80" fill="white" stroke="black" stroke-width="2"/>
+  <text x="1060" y="230" text-anchor="middle" font-size="13" font-weight="bold">Gymnasium Env</text>
+  <line x1="990" y1="240" x2="1130" y2="240" stroke="black" stroke-width="1"/>
+  <text x="1060" y="260" text-anchor="middle" font-size="10">Execute Action</text>
+  <text x="1060" y="275" text-anchor="middle" font-size="10">Return State/Reward</text>
+  
+  <!-- Return arrow -->
+  <line x1="1060" y1="280" x2="1060" y2="320" stroke="black" stroke-width="2"/>
+  <line x1="1060" y1="320" x2="370" y2="320" stroke="black" stroke-width="2"/>
+  <line x1="370" y1="320" x2="370" y2="280" stroke="black" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="715" y="340" text-anchor="middle" font-size="10">Result to Browser</text>
+  
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="black"/>
+    </marker>
+  </defs>
+  
+</svg>

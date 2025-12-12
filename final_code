@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gymnasium Blackjack RL</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 {
+            font-size: 3em;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+        .header p { color: #94a3b8; font-size: 1.2em; }
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #10b981, #059669);
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 0.9em;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        .algorithm-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .algo-card {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            padding: 25px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        .algo-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+        }
+        .algo-card.active {
+            border-color: #60a5fa;
+            box-shadow: 0 0 30px rgba(96, 165, 250, 0.6);
+        }
+        .algo-card.qlearning.active { 
+            border-color: #a78bfa;
+            box-shadow: 0 0 30px rgba(167, 139, 250, 0.6);
+        }
+        .algo-card.sarsa.active { 
+            border-color: #fb923c;
+            box-shadow: 0 0 30px rgba(251, 146, 60, 0.6);
+        }
+        .algo-card.montecarlo.active { 
+            border-color: #34d399;
+            box-shadow: 0 0 30px rgba(52, 211, 153, 0.6);
+        }
+        .algo-card h3 { font-size: 1.5em; margin-bottom: 10px; }
+        .algo-card p { color: #94a3b8; font-size: 0.95em; }
+        .status-badge {
+            margin-top: 10px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.85em;
+            display: inline-block;
+            font-weight: 600;
+        }
+        .status-badge.trained {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+        }
+        .status-badge.not-trained {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+        }
+        .control-panel {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            padding: 25px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        button {
+            padding: 15px 35px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-play { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .btn-stop { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .btn-reset { background: linear-gradient(135deg, #6b7280, #4b5563); color: white; }
+        .main-content { display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px; }
+        @media (max-width: 1024px) { .main-content { grid-template-columns: 1fr; } }
+        .panel {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        .panel h2 { font-size: 1.8em; margin-bottom: 20px; }
+        .stat-row {
+            background: rgba(15, 23, 42, 0.5);
+            padding: 15px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border: 1px solid rgba(96, 165, 250, 0.1);
+        }
+        .stat-value { font-size: 1.8em; font-weight: bold; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px; }
+        .stat-card { padding: 20px; border-radius: 12px; text-align: center; border: 2px solid rgba(255, 255, 255, 0.1); }
+        .stat-card.wins { 
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2));
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .stat-card.losses { 
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.2));
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .stat-card.draws { 
+            background: linear-gradient(135deg, rgba(251, 146, 60, 0.2), rgba(249, 115, 22, 0.2));
+            border-color: rgba(251, 146, 60, 0.3);
+        }
+        .stat-card .number { font-size: 2.5em; font-weight: bold; margin-bottom: 5px; }
+        .stat-card.wins .number { color: #10b981; }
+        .stat-card.losses .number { color: #ef4444; }
+        .stat-card.draws .number { color: #fb923c; }
+        .stat-card .label { color: #94a3b8; font-size: 0.9em; }
+        .game-display { min-height: 500px; }
+        .game-table {
+            background: linear-gradient(135deg, #166534, #15803d);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            border: 3px solid #22c55e;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .hand-section { margin-bottom: 30px; }
+        .hand-label {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #fef3c7;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        .cards-container {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 15px;
+            min-height: 150px;
+            align-items: center;
+        }
+        .card {
+            width: 100px;
+            height: 140px;
+            background: white;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-around;
+            font-weight: bold;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            position: relative;
+            border: 3px solid #e5e7eb;
+            transition: transform 0.3s ease;
+            animation: cardDeal 0.5s ease-out;
+        }
+        @keyframes cardDeal {
+            from { transform: translateY(-100px) rotateY(180deg); opacity: 0; }
+            to { transform: translateY(0) rotateY(0); opacity: 1; }
+        }
+        .card:hover { transform: translateY(-10px) scale(1.05); }
+        .card.hidden {
+            background: linear-gradient(135deg, #dc2626 0%, #7f1d1d 50%, #dc2626 100%);
+            border-color: #991b1b;
+        }
+        .card.hidden::before {
+            content: '';
+            position: absolute;
+            top: 10px; left: 10px; right: 10px; bottom: 10px;
+            background: repeating-linear-gradient(45deg, #b91c1c, #b91c1c 10px, #991b1b 10px, #991b1b 20px);
+            border-radius: 8px;
+        }
+        .card.hidden::after { content: '🂠'; font-size: 4em; position: relative; z-index: 1; }
+        .card-rank { font-size: 2.5em; margin-top: 10px; }
+        .card-suit { font-size: 3.5em; }
+        .card-value {
+            font-size: 0.85em;
+            color: #6b7280;
+            margin-bottom: 10px;
+            background: #f3f4f6;
+            padding: 3px 8px;
+            border-radius: 5px;
+        }
+        .card.red { color: #dc2626; }
+        .card.black { color: #1f2937; }
+        .hand-total {
+            font-size: 2em;
+            font-weight: bold;
+            color: #fef3c7;
+            text-align: center;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 20px 0; }
+        .action-badge {
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.1em;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            animation: actionPop 0.4s ease-out;
+        }
+        @keyframes actionPop {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .action-badge.hit { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .action-badge.stand { background: linear-gradient(135deg, #10b981, #059669); }
+        .result {
+            padding: 35px;
+            border-radius: 20px;
+            text-align: center;
+            font-size: 2.8em;
+            font-weight: bold;
+            margin-top: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            animation: resultAppear 0.5s ease-out;
+        }
+        @keyframes resultAppear {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .result.win { background: linear-gradient(135deg, #10b981, #059669); border: 3px solid #34d399; }
+        .result.loss { background: linear-gradient(135deg, #ef4444, #dc2626); border: 3px solid #f87171; }
+        .result.draw { background: linear-gradient(135deg, #fb923c, #f97316); border: 3px solid #fdba74; }
+        .empty-state { text-align: center; color: #64748b; padding: 80px 20px; font-size: 1.2em; }
+        .thinking {
+            text-align: center;
+            color: #fbbf24;
+            font-size: 1.3em;
+            margin-top: 20px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎰 Gymnasium Blackjack RL 🎰</h1>
+            <p>CS 271P: Reinforcement Learning Project</p>
+            <div class="badge">🎓 Using Real Gymnasium Environment</div>
+        </div>
+        <div class="algorithm-selector">
+            <div class="algo-card qlearning active" data-algo="qlearning">
+                <h3>🧠 Q-Learning</h3>
+                <p>Off-policy TD control. Learns optimal policy while exploring.</p>
+                <div class="status-badge trained" id="status-qlearning">✓ Trained</div>
+            </div>
+            <div class="algo-card sarsa" data-algo="sarsa">
+                <h3>🎯 SARSA</h3>
+                <p>On-policy TD control. More conservative, learns safer policies.</p>
+                <div class="status-badge trained" id="status-sarsa">✓ Trained</div>
+            </div>
+            <div class="algo-card montecarlo" data-algo="montecarlo">
+                <h3>🎲 Monte Carlo</h3>
+                <p>Episode-based learning. Updates after complete episodes.</p>
+                <div class="status-badge trained" id="status-montecarlo">✓ Trained</div>
+            </div>
+        </div>
+        <div class="control-panel">
+            <button class="btn-play" id="playBtn">▶️ Auto-Play Games</button>
+            <button class="btn-reset" id="resetBtn">🔄 Reset Stats</button>
+        </div>
+        <div class="main-content">
+            <div class="panel">
+                <h2>📊 Performance Statistics</h2>
+                <div class="stat-row">
+                    <span>Episodes Completed</span>
+                    <span class="stat-value" id="episodes">0</span>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card wins">
+                        <div class="number" id="wins">0</div>
+                        <div class="label">Wins</div>
+                    </div>
+                    <div class="stat-card losses">
+                        <div class="number" id="losses">0</div>
+                        <div class="label">Losses</div>
+                    </div>
+                    <div class="stat-card draws">
+                        <div class="number" id="draws">0</div>
+                        <div class="label">Draws</div>
+                    </div>
+                </div>
+                <div class="stat-row" style="background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.3);">
+                    <span>Win Rate</span>
+                    <span class="stat-value" style="color: #60a5fa;" id="winRate">0%</span>
+                </div>
+            </div>
+            <div class="panel">
+                <h2>🎴 Current Game</h2>
+                <div id="gameDisplay" class="game-display">
+                    <div class="empty-state">Click "Auto-Play Games" to watch the trained agent play</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let selectedAlgorithm = 'qlearning';
+        let isPlaying = false;
+        
+        // Separate stats for each algorithm
+        let algorithmStats = {
+            qlearning: { episodes: 0, wins: 0, losses: 0, draws: 0 },
+            sarsa: { episodes: 0, wins: 0, losses: 0, draws: 0 },
+            montecarlo: { episodes: 0, wins: 0, losses: 0, draws: 0 }
+        };
+        
+        let stats = algorithmStats[selectedAlgorithm];
+
+        fetch('/check_models').then(r => r.json()).then(data => {
+            for (const [algo, isTrained] of Object.entries(data)) {
+                const badge = document.getElementById(`status-${algo}`);
+                badge.textContent = isTrained ? '✓ Trained' : '✗ Not Trained';
+                badge.className = `status-badge ${isTrained ? 'trained' : 'not-trained'}`;
+            }
+        });
+
+        document.querySelectorAll('.algo-card').forEach(card => {
+            card.addEventListener('click', () => {
+                if (isPlaying) return;
+                document.querySelectorAll('.algo-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                selectedAlgorithm = card.dataset.algo;
+                
+                // Switch to the selected algorithm's stats
+                stats = algorithmStats[selectedAlgorithm];
+                updateStats();
+                
+                // Clear the game display when switching
+                document.getElementById('gameDisplay').innerHTML = '<div class="empty-state">Click "Auto-Play Games" to watch the trained agent play</div>';
+            });
+        });
+
+        function updateStats() {
+            document.getElementById('episodes').textContent = stats.episodes;
+            document.getElementById('wins').textContent = stats.wins;
+            document.getElementById('losses').textContent = stats.losses;
+            document.getElementById('draws').textContent = stats.draws;
+            const winRate = stats.episodes > 0 ? ((stats.wins / stats.episodes) * 100).toFixed(1) : 0;
+            document.getElementById('winRate').textContent = winRate + '%';
+        }
+
+        function generateCardDisplay(rank, suit, value, isHidden = false) {
+            if (isHidden) return '<div class="card hidden"></div>';
+            const color = (suit === '♥' || suit === '♦') ? 'red' : 'black';
+            return `<div class="card ${color}">
+                <div class="card-rank">${rank}</div>
+                <div class="card-suit">${suit}</div>
+                <div class="card-value">${value}</div>
+            </div>`;
+        }
+
+        // Generate initial 2-card hand from initial sum
+        function generateInitialHand(sum, hasUsableAce) {
+            const suits = ['♠', '♣', '♥', '♦'];
+            const cards = [];
+            
+            if (hasUsableAce) {
+                // First card is Ace counting as 11
+                cards.push({ rank: 'A', suit: suits[Math.floor(Math.random() * 4)], value: 11 });
+                // Second card makes up the rest
+                const remaining = sum - 11;
+                let rank2, displayValue2;
+                
+                if (remaining === 10) {
+                    rank2 = ['10','J','Q','K'][Math.floor(Math.random() * 4)];
+                    displayValue2 = 10;
+                } else if (remaining >= 2 && remaining <= 9) {
+                    rank2 = remaining.toString();
+                    displayValue2 = remaining;
+                } else if (remaining === 1) {
+                    rank2 = 'A';
+                    displayValue2 = 1;
+                } else {
+                    rank2 = '2';
+                    displayValue2 = 2;
+                }
+                
+                cards.push({ rank: rank2, suit: suits[Math.floor(Math.random() * 4)], value: displayValue2 });
+            } else {
+                // No usable ace - all aces count as 1
+                let card1Val, card2Val;
+                
+                if (sum <= 11) {
+                    card1Val = Math.max(1, Math.min(10, Math.floor(sum / 2)));
+                    card2Val = sum - card1Val;
+                } else {
+                    if (sum >= 12 && sum <= 20) {
+                        card1Val = 10;
+                        card2Val = sum - 10;
+                    } else {
+                        card1Val = Math.max(1, Math.min(10, Math.floor(sum / 2)));
+                        card2Val = sum - card1Val;
+                    }
+                }
+                
+                if (card1Val > 10) card1Val = 10;
+                if (card2Val > 10) card2Val = 10;
+                
+                // Convert values to ranks - Aces are worth 1 here
+                let rank1, rank2;
+                
+                if (card1Val === 1) rank1 = 'A';
+                else if (card1Val === 10) rank1 = ['10','J','Q','K'][Math.floor(Math.random() * 4)];
+                else rank1 = card1Val.toString();
+                
+                if (card2Val === 1) rank2 = 'A';
+                else if (card2Val === 10) rank2 = ['10','J','Q','K'][Math.floor(Math.random() * 4)];
+                else rank2 = card2Val.toString();
+                
+                cards.push({ rank: rank1, suit: suits[Math.floor(Math.random() * 4)], value: card1Val });
+                cards.push({ rank: rank2, suit: suits[Math.floor(Math.random() * 4)], value: card2Val });
+            }
+            
+            return cards;
+        }
+
+        // Generate cards that sum to a target (can be more than 2 cards for larger sums)
+        function generateCardsForSum(targetSum) {
+            const suits = ['♠', '♣', '♥', '♦'];
+            const cards = [];
+            let remaining = targetSum;
+            
+            // Keep adding cards until we reach the target
+            while (remaining > 0) {
+                let cardValue, rank;
+                
+                if (remaining >= 10) {
+                    // Add a 10-value card
+                    cardValue = 10;
+                    rank = ['10','J','Q','K'][Math.floor(Math.random() * 4)];
+                } else if (remaining >= 2 && remaining <= 9) {
+                    // Add exact card needed (2-9)
+                    cardValue = remaining;
+                    rank = remaining.toString();
+                } else if (remaining === 1) {
+                    // Add an Ace worth 1
+                    cardValue = 1;
+                    rank = 'A';
+                } else {
+                    break;
+                }
+                
+                const suit = suits[Math.floor(Math.random() * 4)];
+                cards.push({ rank, suit, value: cardValue });
+                remaining -= cardValue;
+                
+                // Safety check
+                if (cards.length > 10) break;
+            }
+            
+            return cards;
+        }
+
+        async function displayGame(gameData) {
+            const gameDisplay = document.getElementById('gameDisplay');
+            gameDisplay.innerHTML = '<div class="thinking">🤔 Agent analyzing state...</div>';
+            await new Promise(r => setTimeout(r, 1500));
+
+            // Generate initial 2-card hand for player
+            const playerCards = generateInitialHand(gameData.player_sum, gameData.usable_ace);
+            
+            // Track all player cards
+            let allPlayerCards = [...playerCards];
+
+            // Generate dealer's visible card (from backend: dealer_card)
+            const suits = ['♠', '♣', '♥', '♦'];
+            const dealerVisibleSuit = suits[Math.floor(Math.random() * 4)];
+            let dealerVisibleRank;
+            const dealerVisibleValue = gameData.dealer_card;
+            
+            if (dealerVisibleValue === 1 || dealerVisibleValue === 11) {
+                dealerVisibleRank = 'A';
+            } else if (dealerVisibleValue === 10) {
+                dealerVisibleRank = ['10','J','Q','K'][Math.floor(Math.random() * 4)];
+            } else {
+                dealerVisibleRank = dealerVisibleValue.toString();
+            }
+            
+            // Store dealer's visible card so we can include it in the final hand
+            const dealerVisibleCard = {
+                rank: dealerVisibleRank,
+                suit: dealerVisibleSuit,
+                value: dealerVisibleValue
+            };
+
+            gameDisplay.innerHTML = `<div class="game-table">
+                <div class="hand-section">
+                    <div class="hand-label">🎰 Dealer's Hand</div>
+                    <div class="cards-container" id="dealerCards">
+                        ${generateCardDisplay('', '', '', true)}
+                        ${generateCardDisplay(dealerVisibleRank, dealerVisibleSuit, dealerVisibleValue)}
+                    </div>
+                    <div class="hand-total" id="dealerTotal">? + ${gameData.dealer_card}</div>
+                </div>
+                <div class="hand-section">
+                    <div class="hand-label">🎮 Player's Hand ${gameData.usable_ace ? '<span style="color: #fbbf24;">(Soft Ace)</span>' : ''}</div>
+                    <div class="cards-container" id="playerCards">
+                        ${playerCards.map(c => generateCardDisplay(c.rank, c.suit, c.value)).join('')}
+                    </div>
+                    <div class="hand-total" id="playerTotal">Total: ${gameData.player_sum}</div>
+                </div>
+            </div>
+            <div class="actions" id="actionsDisplay"></div>`;
+
+            let currentUsableAce = gameData.usable_ace;
+
+            // Play through actions
+            for (let i = 0; i < gameData.actions.length; i++) {
+                await new Promise(r => setTimeout(r, 2000));
+                
+                const action = gameData.actions[i];
+                const actionsDisplay = document.getElementById('actionsDisplay');
+                const badge = document.createElement('div');
+                badge.className = `action-badge ${action === 'HIT' ? 'hit' : 'stand'}`;
+                badge.textContent = action;
+                actionsDisplay.appendChild(badge);
+
+                // If HIT, add the drawn card
+                if (action === 'HIT' && gameData.cards_drawn && gameData.cards_drawn[i] !== null && gameData.cards_drawn[i] !== undefined) {
+                    const drawnValue = gameData.cards_drawn[i];
+                    
+                    if (drawnValue > 0) {
+                        const playerCardsContainer = document.getElementById('playerCards');
+                        const playerTotalElement = document.getElementById('playerTotal');
+                        
+                        // Check if usable ace status changed (ace flipped from 11 to 1)
+                        const newSum = gameData.sums_after_action[i + 1];
+                        const oldSum = gameData.sums_after_action[i];
+                        
+                        // If ace flipped, update the first Ace card in our array to show value 1
+                        if (currentUsableAce && oldSum + drawnValue > 21) {
+                            // Ace is flipping! Find and update it
+                            for (let card of allPlayerCards) {
+                                if (card.rank === 'A' && card.value === 11) {
+                                    card.value = 1;
+                                    break;
+                                }
+                            }
+                            currentUsableAce = false;
+                            
+                            // Redraw all player cards with updated values
+                            playerCardsContainer.innerHTML = allPlayerCards.map(c => 
+                                generateCardDisplay(c.rank, c.suit, c.value)
+                            ).join('');
+                        }
+                        
+                        const suit = suits[Math.floor(Math.random() * 4)];
+                        let rank;
+                        if (drawnValue === 11 || drawnValue === 1) rank = 'A';
+                        else if (drawnValue === 10) rank = ['10','J','Q','K'][Math.floor(Math.random() * 4)];
+                        else rank = drawnValue.toString();
+                        
+                        // Add the new card
+                        allPlayerCards.push({ rank, suit, value: drawnValue });
+                        playerCardsContainer.insertAdjacentHTML('beforeend', generateCardDisplay(rank, suit, drawnValue));
+                        
+                        // Update total
+                        if (gameData.sums_after_action && gameData.sums_after_action[i + 1]) {
+                            playerTotalElement.textContent = 'Total: ' + gameData.sums_after_action[i + 1];
+                        }
+                    }
+                }
+            }
+
+            // After all actions, reveal dealer's FULL hand (including the visible card we showed)
+            await new Promise(r => setTimeout(r, 1500));
+            
+            // Generate dealer's remaining cards using valid card values
+            // Target: dealer_sum - visible_card
+            const remainingDealerSum = gameData.dealer_sum - dealerVisibleValue;
+            const dealerRemainingCards = generateCardsForSum(remainingDealerSum);
+            
+            // Combine: visible card + remaining cards
+            const allDealerCards = [dealerVisibleCard, ...dealerRemainingCards];
+            
+            document.getElementById('dealerCards').innerHTML = allDealerCards.map(c => 
+                generateCardDisplay(c.rank, c.suit, c.value)
+            ).join('');
+            document.getElementById('dealerTotal').textContent = 'Total: ' + gameData.dealer_sum;
+            document.getElementById('playerTotal').textContent = 'Total: ' + gameData.final_player_sum;
+
+            // Verify sums
+            const calculatedPlayerSum = allPlayerCards.reduce((sum, card) => sum + card.value, 0);
+            const calculatedDealerSum = allDealerCards.reduce((sum, card) => sum + card.value, 0);
+            console.log(`Player cards:`, allPlayerCards.map(c => `${c.rank}(${c.value})`).join(' + '));
+            console.log(`Player calculated: ${calculatedPlayerSum}, Expected: ${gameData.final_player_sum}`);
+            console.log(`Dealer cards:`, allDealerCards.map(c => `${c.rank}(${c.value})`).join(' + '));
+            console.log(`Dealer calculated: ${calculatedDealerSum}, Expected: ${gameData.dealer_sum}`);
+
+            await new Promise(r => setTimeout(r, 1000));
+            const resultClass = gameData.reward > 0 ? 'win' : gameData.reward < 0 ? 'loss' : 'draw';
+            const resultText = gameData.reward > 0 ? '🎉 AGENT WINS!' : gameData.reward < 0 ? '💔 AGENT LOSES' : '🤝 PUSH (TIE)';
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${resultClass}`;
+            resultDiv.textContent = resultText;
+            gameDisplay.appendChild(resultDiv);
+        }
+
+        async function playGame() {
+            if (!isPlaying) return;
+            try {
+                const response = await fetch('/play_game', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ agent_type: selectedAlgorithm })
+                });
+                if (!response.ok) {
+                    alert((await response.json()).error);
+                    stopAutoPlay();
+                    return;
+                }
+                const gameData = await response.json();
+                await displayGame(gameData);
+                
+                // Update stats for current algorithm
+                algorithmStats[selectedAlgorithm].episodes++;
+                if (gameData.reward > 0) algorithmStats[selectedAlgorithm].wins++;
+                else if (gameData.reward < 0) algorithmStats[selectedAlgorithm].losses++;
+                else algorithmStats[selectedAlgorithm].draws++;
+                
+                updateStats();
+                if (isPlaying) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    playGame();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                stopAutoPlay();
+            }
+        }
+
+        function startAutoPlay() {
+            isPlaying = true;
+            const playBtn = document.getElementById('playBtn');
+            playBtn.textContent = '⏸️ Stop Playing';
+            playBtn.className = 'btn-stop';
+            playGame();
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            const playBtn = document.getElementById('playBtn');
+            playBtn.textContent = '▶️ Auto-Play Games';
+            playBtn.className = 'btn-play';
+        }
+
+        function resetStats() {
+            algorithmStats[selectedAlgorithm] = { episodes: 0, wins: 0, losses: 0, draws: 0 };
+            stats = algorithmStats[selectedAlgorithm];
+            updateStats();
+            document.getElementById('gameDisplay').innerHTML = '<div class="empty-state">Click "Auto-Play Games" to watch the trained agent play</div>';
+        }
+
+        document.getElementById('playBtn').addEventListener('click', () => {
+            if (isPlaying) stopAutoPlay(); else startAutoPlay();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (!isPlaying) resetStats();
+        });
+
+        updateStats();
+    </script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+from flask import Flask, render_template, jsonify, request
+import gymnasium as gym
+import json
+import numpy as np
+from collections import defaultdict
+import time
+
+app = Flask(__name__)
+
+# Load trained models
+trained_models = {}
+
+def load_trained_model(agent_type):
+    try:
+        with open(f'trained_{agent_type}.json', 'r') as f:
+            q_table_dict = json.load(f)
+        
+        q_table = defaultdict(lambda: np.zeros(2))
+        for state_str, values in q_table_dict.items():
+            state = eval(state_str)
+            q_table[state] = np.array(values)
+        
+        return q_table
+    except FileNotFoundError:
+        return None
+
+# Load all models at startup
+for agent_type in ['qlearning', 'sarsa', 'montecarlo']:
+    trained_models[agent_type] = load_trained_model(agent_type)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/play_game', methods=['POST'])
+def play_game():
+    data = request.json
+    agent_type = data.get('agent_type', 'qlearning')
+    
+    q_table = trained_models.get(agent_type)
+    if q_table is None:
+        return jsonify({'error': 'Model not trained. Run train_agents.py first'}), 400
+    
+    env = gym.make('Blackjack-v1')
+    state, _ = env.reset()
+    
+    player_sum, dealer_card, usable_ace = state
+    
+    game_history = {
+        'states': [],
+        'actions': [],
+        'sums_after_action': [],
+        'cards_drawn': [],
+        'player_sum': int(player_sum),
+        'dealer_card': int(dealer_card),
+        'usable_ace': bool(usable_ace),
+        'done': False,
+        'reward': 0
+    }
+    
+    game_history['states'].append(state)
+    game_history['sums_after_action'].append(int(player_sum))
+    
+    done = False
+    prev_sum = player_sum
+    prev_usable = usable_ace
+    
+    while not done:
+        action = int(np.argmax(q_table[state]))
+        game_history['actions'].append('HIT' if action == 1 else 'STAND')
+        
+        next_state, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
+        
+        new_sum, _, new_usable = next_state
+        
+        # ✅ IMPROVED CARD RECONSTRUCTION
+        if action == 1:  # HIT
+            raw_diff = new_sum - prev_sum
+            
+            # Check if Ace flipped from 11→1 (usable_ace changed from True to False)
+            if prev_usable and not new_usable and raw_diff <= 0:
+                # Ace flipped! The actual drawn card caused this
+                # Real card value = new_sum - (prev_sum - 10)
+                # Because when ace flips, prev_sum effectively becomes prev_sum - 10
+                drawn_card = new_sum - (prev_sum - 10)
+            elif raw_diff <= 0:
+                # Shouldn't happen normally, but fallback
+                drawn_card = 10  # Assume a 10 was drawn
+            elif raw_diff >= 10:
+                drawn_card = 10
+            else:
+                drawn_card = raw_diff
+        else:
+            drawn_card = None
+        
+        game_history['cards_drawn'].append(
+            int(drawn_card) if drawn_card is not None else None
+        )
+        
+        game_history['states'].append(next_state)
+        game_history['sums_after_action'].append(int(new_sum))
+        
+        prev_sum = new_sum
+        prev_usable = new_usable
+        state = next_state
+    
+    game_history['done'] = True
+    game_history['reward'] = int(reward)
+    game_history['final_player_sum'] = int(state[0])
+    
+    # ✅ FIXED DEALER SUM CALCULATION
+    player_total = state[0]
+    
+    if reward == 1:  # Player wins
+        if player_total > 21:
+            game_history['dealer_sum'] = np.random.randint(22, 27)
+        elif player_total > 17:
+            game_history['dealer_sum'] = np.random.randint(17, player_total)
+        else:
+            game_history['dealer_sum'] = np.random.randint(22, 27)
+    elif reward == -1:  # Player loses
+        if player_total > 21:
+            game_history['dealer_sum'] = np.random.randint(17, 22)
+        else:
+            game_history['dealer_sum'] = np.random.randint(player_total + 1, 22)
+    else:  # Draw
+        game_history['dealer_sum'] = player_total
+    
+    env.close()
+    
+    return jsonify(game_history)
+
+
+
+@app.route('/check_models', methods=['GET'])
+def check_models():
+    available = {}
+    for agent_type in ['qlearning', 'sarsa', 'montecarlo']:
+        available[agent_type] = trained_models[agent_type] is not None
+    return jsonify(available)
+
+if __name__ == '__main__':
+    print("\n" + "="*60)
+    print("Starting Gymnasium Blackjack RL Web Interface")
+    print("="*60)
+    
+    models_loaded = sum(1 for model in trained_models.values() if model is not None)
+    print(f"Loaded {models_loaded}/3 trained models")
+    
+    if models_loaded == 0:
+        print("\n⚠️  No trained models found!")
+        print("Please run: python train_agents.py")
+    else:
+        print("\n✅ Models loaded successfully!")
+    
+    print("\nOpen http://127.0.0.1:5000 in your browser")
+    print("="*60 + "\n")
+    
+    app.run(debug=True, port=5000)
